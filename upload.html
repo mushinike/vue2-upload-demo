@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<style>
+			*{padding: 0;margin: 0;}
+			body{width: 980px;margin: 0 auto;text-align: center;}
+			.clearfix:after { 
+				content: "." ; 
+				display: block ;
+				height: 0 ;
+				clear: both ;
+				visibility: hidden ;
+			}
+			.upload-file{text-align: left;}
+			.upload-file li{list-style: none;}
+			.upload-file-list li{width:120px;max-height:120px;display: inline-block;overflow: hidden;position: relative;left: 0;top: 0;margin-right:20px;}
+			.upload-file-list{margin-top:20px;}
+			.upload-file-list li .close{position: absolute;top: 5px;right: 5px;background: #eee;color: #333;line-height: 14px;padding: 0px 3px;padding-bottom: 2px;cursor: pointer;}
+			.upload-file-list li .progress{border: solid #ccc 1px;height: 5px;background-color: rgba(0,255,0,0.5);position: absolute;left: 0;top: 48%;}
+		</style>
+	</head>
+	<body>
+		<div id="app">
+			<upload @up-preview="preview" @up-remove="remove" @up-change="change"  @up-error="error" :up-size="1024*1000" :up-progress="progress" :file-list="fileList" :up-type="types">
+				<input type="submit" name="" id="" v-upbtn value="上传文件" />
+				<span>只能上传图片的吧</span>
+			</upload>
+			<br />
+			<input @click="submit" type="submit" value="提交到服务器" />
+		</div>
+
+		<script type="text/javascript" src="js/vue.min.js" ></script>
+		<script type="text/template" id="upload">
+			<div class="upload-file">
+				<div class="upload-input clearfix">
+					<input type="file" style="display: none;" ref="upload-input" id="upload-file-input" @change="change($event)" />
+					<slot></slot>
+				</div>
+				<div class="upload-file-list">
+					<ul>
+						<li v-for="(item,index) in items">
+							<img :src="item.image" width="100%" @click="preview(item)" v-show="item.image" />
+							<span class="text" v-show="item.url" v-text="item.name"></span>
+							<span @click.stop="remove(index)" class="close">x</span>
+							<p class="progress" :style="{'width': item.progress+'%'}" v-show="item.progress!=0" ></p>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</script>
+		
+		<script>
+			new Vue({
+				el:"#app",
+				data:{
+					types:["jpg","jpeg","gif","png","txt"], 
+					fileList:[],
+					items:[],
+					progress:0
+				},
+				created:function(){
+					for(var i=1;i<5;i++){
+						var obj={};
+							obj.name="name "+i;
+							obj.src="images/flash"+i+".jpg";
+							obj.size=0;
+							obj.type="";
+							this.fileList.push(obj);
+					}
+				},
+				methods:{
+					error:function(msg){
+						console.log(msg)
+					},
+					change:function(file,fileList){
+						this.items=fileList;
+					},
+					remove:function(file,fileList){
+						console.log(fileList)
+					},
+					preview:function(file,fileList){
+						console.log(fileList)
+					},
+					submit:function(){
+						var progress=0;
+						var _this=this;
+						var time=setInterval(function(){
+							progress+=10;
+							_this.progress=progress;
+							
+							if(progress>=100){
+								
+								clearInterval(time);
+							}
+						},1000);
+					}
+				},
+				components:{
+					upload:{
+						template:"#upload",
+						data:function(){
+							return {
+								items:[],
+								datas:[]
+							}
+						},
+						props:["fileList","upProgress","upType","upSize"],
+						created:function(){
+							this.items=this.fileList||[];
+							for(var i=0,ii=this.items.length;i<ii;i++){
+								var data=this.items[i];
+								if(data.src&&/jpg|jpeg|gif|png/i.test(data.src.slice(data.src.lastIndexOf(".")+1))){
+									data.image=data.src;
+								}else{
+									data.url=data.src;
+								}
+								
+								this.datas.push({name:data.name,type:data.type,size:data.size,src:data.src});
+							}
+						},
+						watch:{
+							"upProgress":function(val){
+								if(val<101&&this.items.length>0){
+									if(val>=100){
+										for(var i=0,ii=this.items.length;i<ii;i++){
+											this.items[i].progress=100;
+										}
+										return;
+									}
+									
+									var len=this.items.length;
+									var count= 100/len;
+									for(var i=0,ii=this.items.length;i<ii;i++){
+										if(val>count){
+											if(this.items[i].progress!=100){
+												this.items[i].progress=100;
+											}
+											
+											val-=count;
+										}else{
+											this.items[i].progress=val*len;
+											break;
+										}
+									}
+								}
+							}
+						},
+						methods:{
+							change:function(item){
+								this.$emit("up-change",item,this.datas);
+							},
+							preview:function(item){
+								this.$emit("up-preview",item,this.datas);
+							},
+							remove:function(index){
+								var item=this.datas.splice(index,1)[0];
+									this.items.splice(index,1);
+									this.$emit("up-remove",item,this.datas);
+									this.$emit("up-change",item,this.datas);
+							},
+							change:function(e){
+								var _this=this;
+								if (window.FileReader) {
+						            var reader = new FileReader();
+						        } else {
+						            _this.$emit("up-error","您的设备不支持图片预览功能，如需该功能请升级您的设备！");
+						        	return;
+						        }
+						        
+								var target=e.target;
+								var file=target.files[0];
+								if(!file){
+									return;
+								}
+								
+								if(_this.upSize<file.size){
+									_this.$emit("up-error","文件的大小不能大于"+(_this.upSize/1024)+"kb");
+							        return;
+								}
+								
+								var str="";
+								if(_this.upType.length>0){
+									for(var j=0,jj=_this.upType.length;j<jj;j++){
+										str+=_this.upType[j]+"|";
+									}
+									str=str.slice(0,-1);
+
+									var reg=new RegExp(str,"i");
+									var fileType=file.name.slice(file.name.lastIndexOf(".")+1);
+									if (!reg.test(fileType)) {
+							            _this.$emit("up-error","你选择的格式不正确");
+							            return;
+							        }
+								}
+								
+						        var obj={name:file.name,type:file.type,progress:0,size:file.size};
+						        for(var i=0,ii=_this.items.length;i<ii;i++){
+						        	if(_this.items[i].name==file.name){
+						        		_this.$refs["upload-input"].value="";
+						        		_this.$emit("up-error","不能上传已经存在的文件");
+						        		return ;
+						        	}
+						        }
+						        
+						        reader.readAsDataURL(file);
+						        //读取完成
+						        reader.onload = function(e) {
+						        	if(/^image\//i.test(file.type)){
+						        		obj.image=e.target.result;
+						        	}else{
+						        		obj.url=e.target.result;
+						        	}
+						        	
+						            _this.items.push(obj);
+						            
+						            var data={type:obj.type,size:obj.size,name:obj.name,src:obj.image||obj.url};
+						            _this.datas.push(data);
+						            _this.$emit("up-change",obj,_this.datas);
+						            _this.$refs["upload-input"].value="";
+						        };
+						        reader.onerror=function(e){
+						        	_this.$emit("up-error","上传出错了",e);
+						        };
+						        reader.onprogress=function(e){
+						        	
+						        };
+							}
+						}
+					}
+				},
+				directives:{
+					"upbtn":{
+						inserted:function(el){
+							var label=document.createElement("label");
+							label.setAttribute("for","upload-file-input");
+							el.parentNode.appendChild(label);
+							el.addEventListener?el.addEventListener("click",function(e){
+								e.preventDefault;
+								label.click();
+							},false):
+							el.attachEvent("onclick",function(){
+								e.preventDefault;
+								label.click();
+							});
+						}
+					}
+				}
+			});
+		</script>
+	</body>
+</html>
