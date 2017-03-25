@@ -44,7 +44,7 @@
 							<img :src="item.image" width="100%" @click="preview(item)" v-show="item.image" />
 							<span class="text" v-show="item.url" v-text="item.name"></span>
 							<span @click.stop="remove(index)" class="close">x</span>
-							<p class="progress" :style="{'width': item.progress+'%'}" v-show="item.progress!=0" ></p>
+							<p class="progress" :style="{'width': item.progress+'%'}" v-show="item.progress&&item.progress!=0"></p>
 						</li>
 					</ul>
 				</div>
